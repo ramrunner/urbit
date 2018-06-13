@@ -957,41 +957,57 @@ _http_init_tls(u3_noun key, u3_noun cer)
 
   {
     uv_buf_t key_u = _http_wain_to_buf(key);
-    BIO* kbio = BIO_new_mem_buf((void*)key_u.base, key_u.len);
+    BIO* kbio = BIO_new_mem_buf(key_u.base, key_u.len);
+    // XX PKCS8 PEM_read_bio_PrivateKey
     RSA* rsa = PEM_read_bio_RSAPrivateKey(kbio, 0, 0, 0);
 
     BIO_free(kbio);
     free(key_u.base);
 
     if( 0 != rsa ) {
+      // XX check return
       SSL_CTX_use_RSAPrivateKey(tls_u, rsa);
     }
     else {
       // XX retrieve and print error
+      uL(fprintf(uH, "key fail\n"));
       return 0;
     }
   }
 
   {
     uv_buf_t cer_u = _http_wain_to_buf(cer);
-    BIO* cbio = BIO_new_mem_buf((void*)cer_u.base, cer_u.len);
-    X509_STORE* xtor = SSL_CTX_get_cert_store(tls_u);
+    BIO* cbio = BIO_new_mem_buf(cer_u.base, cer_u.len);
+    X509* xcer = PEM_read_bio_X509_AUX(cbio, 0, 0, 0);
 
-    X509* xcer;
-    c3_s len_s = 0;
+    if ( 0 != xcer ) {
+      // XX check return
+      SSL_CTX_use_certificate(tls_u, xcer);
+      // freed always
+      X509_free(xcer);
+    }
+    else {
+      // XX retrieve and print error
+      uL(fprintf(uH, "cert fail\n"));
 
+      BIO_free(cbio);
+      free(cer_u.base);
+
+      return 0;
+    }
+
+    // XX SSL_CTX_clear_chain_certs ?
+
+    // get any CA certs from the chan
     while ( 0 != (xcer = PEM_read_bio_X509(cbio, 0, 0, 0)) ) {
-      X509_STORE_add_cert(xtor, xcer);
-      len_s++;
+      if ( 0 == SSL_CTX_add0_chain_cert(tls_u, xcer) ) {
+        // free'd only on failure
+        X509_free(xcer);
+      }
     }
 
     BIO_free(cbio);
     free(cer_u.base);
-
-    if ( 0 == len_s ) {
-      // XX print error
-      return 0;
-    }
   }
 
   return tls_u;
