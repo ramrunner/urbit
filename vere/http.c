@@ -13,6 +13,7 @@
 #include <uv.h>
 #include <errno.h>
 #include <openssl/ssl.h>
+ #include <openssl/err.h>
 #include <h2o.h>
 #include "all.h"
 #include "vere/vere.h"
@@ -956,57 +957,66 @@ _http_init_tls(u3_noun key, u3_noun cer)
                           "RSA+AES:RSA+3DES:!aNULL:!MD5:!DSS");
 
   {
-    uv_buf_t key_u = _http_wain_to_buf(key);
-    BIO* kbio = BIO_new_mem_buf(key_u.base, key_u.len);
+    uv_buf_t key_u = _http_wain_to_buf(u3k(key));
+    BIO* bio_u = BIO_new_mem_buf(key_u.base, key_u.len);
     // XX PKCS8 PEM_read_bio_PrivateKey
-    RSA* rsa = PEM_read_bio_RSAPrivateKey(kbio, 0, 0, 0);
+    RSA* rsa_u = PEM_read_bio_RSAPrivateKey(bio_u, 0, 0, 0);
 
-    BIO_free(kbio);
+    BIO_free(bio_u);
     free(key_u.base);
 
-    if( 0 != rsa ) {
-      // XX check return
-      SSL_CTX_use_RSAPrivateKey(tls_u, rsa);
-    }
-    else {
-      // XX retrieve and print error
-      uL(fprintf(uH, "key fail\n"));
+    if( (0 == rsa_u) ||
+        (0 == SSL_CTX_use_RSAPrivateKey(tls_u, rsa_u)) ) {
+      uL(fprintf(uH, "http: load private key failed:\n"));
+      ERR_print_errors_fp(uH);
+      uL(1);
+
+      if ( 0 != rsa_u ) {
+        RSA_free(rsa_u);
+      }
+
+      SSL_CTX_free(tls_u);
       return 0;
     }
   }
 
   {
-    uv_buf_t cer_u = _http_wain_to_buf(cer);
-    BIO* cbio = BIO_new_mem_buf(cer_u.base, cer_u.len);
-    X509* xcer = PEM_read_bio_X509_AUX(cbio, 0, 0, 0);
+    uv_buf_t cer_u = _http_wain_to_buf(u3k(cer));
+    BIO* bio_u = BIO_new_mem_buf(cer_u.base, cer_u.len);
+    X509* xer_u = PEM_read_bio_X509_AUX(bio_u, 0, 0, 0);
 
-    if ( 0 != xcer ) {
-      // XX check return
-      SSL_CTX_use_certificate(tls_u, xcer);
-      // freed always
-      X509_free(xcer);
-    }
-    else {
-      // XX retrieve and print error
-      uL(fprintf(uH, "cert fail\n"));
+    if ( (0 == xer_u) ||
+         (0 == SSL_CTX_use_certificate(tls_u, xer_u)) ) {
+      uL(fprintf(uH, "http: load certificate failed:\n"));
+      ERR_print_errors_fp(uH);
+      uL(1);
 
-      BIO_free(cbio);
+      BIO_free(bio_u);
       free(cer_u.base);
+
+      if ( 0 != xer_u ) {
+        X509_free(xer_u);
+      }
+
+      SSL_CTX_free(tls_u);
 
       return 0;
     }
 
+    // freed on success too
+    X509_free(xer_u);
+
     // XX SSL_CTX_clear_chain_certs ?
 
-    // get any CA certs from the chan
-    while ( 0 != (xcer = PEM_read_bio_X509(cbio, 0, 0, 0)) ) {
-      if ( 0 == SSL_CTX_add0_chain_cert(tls_u, xcer) ) {
+    // get any additional CA certs, ignoring errors
+    while ( 0 != (xer_u = PEM_read_bio_X509(bio_u, 0, 0, 0)) ) {
+      if ( 0 == SSL_CTX_add0_chain_cert(tls_u, xer_u) ) {
         // free'd only on failure
-        X509_free(xcer);
+        X509_free(xer_u);
       }
     }
 
-    BIO_free(cbio);
+    BIO_free(bio_u);
     free(cer_u.base);
   }
 
@@ -1160,9 +1170,6 @@ _http_serv_start_all(void)
       if ( c3y == pro ) {
         htp_u->rox_u = _proxy_serv_new(htp_u, 443, c3y);
       }
-    }
-    else {
-      // XX print error
     }
   }
 
