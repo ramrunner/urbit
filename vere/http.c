@@ -1010,10 +1010,8 @@ _http_init_tls(u3_noun key, u3_noun cer)
 
     // get any additional CA certs, ignoring errors
     while ( 0 != (xer_u = PEM_read_bio_X509(bio_u, 0, 0, 0)) ) {
-      if ( 0 == SSL_CTX_add0_chain_cert(tls_u, xer_u) ) {
-        // free'd only on failure
-        X509_free(xer_u);
-      }
+      // XX require 1.0.2 or newer and use SSL_CTX_add0_chain_cert
+      X509_STORE_add_cert(SSL_CTX_get_cert_store(tls_u), xer_u);
     }
 
     BIO_free(bio_u);
