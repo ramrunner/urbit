@@ -621,8 +621,6 @@ _http_serv_unlink(u3_http* htp_u)
 static void
 _http_serv_free(u3_http* htp_u)
 {
-  uL(fprintf(uH, "_http_serv_free\n"));
-
   _http_serv_unlink(htp_u);
 
   while ( 0 != htp_u->hon_u ) {
@@ -654,7 +652,6 @@ _http_serv_free(u3_http* htp_u)
 static void
 _http_serv_close_hard(u3_http* htp_u)
 {
-  uL(fprintf(uH, "_http_serv_close_hard\n"));
   uv_close((uv_handle_t*)&htp_u->wax_u,
            (uv_close_cb)_http_serv_free);
 }
@@ -664,7 +661,6 @@ _http_serv_close_hard(u3_http* htp_u)
 static void
 _http_serv_close_soft(u3_http* htp_u)
 {
-  uL(fprintf(uH, "_http_serv_close_soft\n"));
   u3_h2o_serv* h2o_u = htp_u->h2o_u;
   h2o_context_request_shutdown(&h2o_u->ctx_u);
 
