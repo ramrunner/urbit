@@ -243,14 +243,15 @@ _http_req_unlink(u3_hreq* req_u)
 static void
 _http_req_free(u3_hreq* req_u)
 {
-  u3_hcon* hon_u = req_u->hon_u;
-  u3_http* htp_u = hon_u->htp_u;
+  // u3_hcon* hon_u = req_u->hon_u;
+  // u3_http* htp_u = hon_u->htp_u;
 
   _http_req_unlink(req_u);
 
-  if ( (c3n == htp_u->liv) && (0 == hon_u->req_u) ) {
-    _http_conn_close(hon_u);
-  }
+  // XX graceful shutdown disabled
+  // if ( (c3n == htp_u->liv) && (0 == hon_u->req_u) ) {
+  //   _http_conn_close(hon_u);
+  // }
 
   free(req_u);
 }
@@ -510,7 +511,7 @@ static void
 _http_conn_free(uv_handle_t* han_t)
 {
   u3_hcon* hon_u = (u3_hcon*)han_t;
-  u3_http* htp_u = hon_u->htp_u;
+  // u3_http* htp_u = hon_u->htp_u;
 
   while ( 0 != hon_u->req_u ) {
     u3_hreq* req_u = hon_u->req_u;
@@ -524,9 +525,10 @@ _http_conn_free(uv_handle_t* han_t)
 
   _http_conn_unlink(hon_u);
 
-  if ( (c3n == htp_u->liv) && (0 == htp_u->hon_u) ) {
-    _http_serv_close_hard(htp_u);
-  }
+  // XX graceful shutdown disabled
+  // if ( (c3n == htp_u->liv) && (0 == htp_u->hon_u) ) {
+  //   _http_serv_close_hard(htp_u);
+  // }
 
   free(hon_u);
 }
@@ -623,10 +625,11 @@ _http_serv_free(u3_http* htp_u)
 {
   _http_serv_unlink(htp_u);
 
-  while ( 0 != htp_u->hon_u ) {
-    _http_conn_close(htp_u->hon_u);
-    htp_u->hon_u = htp_u->hon_u->nex_u;
-  }
+  // XX revisit, this is called twice when we're restarting
+  // while ( 0 != htp_u->hon_u ) {
+  //   _http_conn_close(htp_u->hon_u);
+  //   htp_u->hon_u = htp_u->hon_u->nex_u;
+  // }
 
   if ( 0 != htp_u->h2o_u ) {
     h2o_config_dispose(&((u3_h2o_serv*)htp_u->h2o_u)->fig_u);
@@ -640,10 +643,10 @@ _http_serv_free(u3_http* htp_u)
     htp_u->rox_u = 0;
   }
 
-  // XX groace
-  if ( (c3n == htp_u->liv) && (0 == u3_Host.htp_u) ) {
-    _http_serv_start_all();
-  }
+  // XX graceful shutdown disabled
+  // if ( (c3n == htp_u->liv) && (0 == u3_Host.htp_u) ) {
+  //   _http_serv_start_all();
+  // }
 
   free(htp_u);
 }
@@ -1330,6 +1333,7 @@ _http_serv_restart(void)
   u3_Host.fig_u.tim_u = c3_malloc(sizeof(uv_timer_t));
 
   uv_timer_init(u3L, u3_Host.fig_u.tim_u);
+  // XX how long?
   uv_timer_start(u3_Host.fig_u.tim_u, _http_serv_restart_cb, 0, 0);
 
   _http_release_ports_file(u3_Host.dir_c);
@@ -1575,6 +1579,12 @@ _proxy_conn_free(u3_pcon* con_u)
 static void
 _proxy_conn_close(u3_pcon* con_u)
 {
+  // XX revisit, this is called twice when con_u
+  // is a loopback connection and we're restarting
+  if ( uv_is_closing((uv_handle_t*)&con_u->don_u) ){
+    return;
+  }
+
   if ( 0 != con_u->upt_u ) {
     uv_close((uv_handle_t*)con_u->upt_u, (uv_close_cb)free);
   }
