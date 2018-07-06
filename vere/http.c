@@ -1008,12 +1008,13 @@ _http_init_tls(uv_buf_t key_u, uv_buf_t cer_u)
     // freed on success too
     X509_free(xer_u);
 
-    // XX SSL_CTX_clear_chain_certs ?
+    // XX require 1.02 or newer
+    // SSL_CTX_clear_chain_certs(tls_u);
 
     // get any additional CA certs, ignoring errors
     while ( 0 != (xer_u = PEM_read_bio_X509(bio_u, 0, 0, 0)) ) {
       // XX require 1.0.2 or newer and use SSL_CTX_add0_chain_cert
-      X509_STORE_add_cert(SSL_CTX_get_cert_store(tls_u), xer_u);
+      SSL_CTX_add_extra_chain_cert(tls_u, xer_u);
     }
 
     BIO_free(bio_u);
