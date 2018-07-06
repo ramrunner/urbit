@@ -239,31 +239,6 @@ _http_req_unlink(u3_hreq* req_u)
   }
 }
 
-/* _http_req_free(): free http request.
-*/
-static void
-_http_req_free(u3_hreq* req_u)
-{
-  u3_hcon* hon_u = req_u->hon_u;
-  _http_req_unlink(req_u);
-  free(req_u);
-}
-
-/* _http_req_new(): receive http request.
-*/
-static u3_hreq*
-_http_req_new(u3_hcon* hon_u, h2o_req_t* rec_u)
-{
-  u3_hreq* req_u = c3_malloc(sizeof(*req_u));
-  req_u->rec_u = rec_u;
-  req_u->sat_e = u3_rsat_init;
-  req_u->pre_u = 0;
-
-  _http_req_link(hon_u, req_u);
-
-  return req_u;
-}
-
 /* _http_req_to_duct(): translate srv/con/req to duct
 */
 static u3_noun
@@ -285,15 +260,51 @@ _http_req_kill(u3_hreq* req_u)
   u3v_plan(pox, u3nc(c3__thud, u3_nul));
 }
 
-/* _http_req_close(): send 503 and close request
+/* _http_req_cancel(): send 503 and kill request
 */
 static void
-_http_req_close(u3_hreq* req_u)
+_http_req_cancel(u3_hreq* req_u)
 {
-  h2o_send_error_generic(req_u->rec_u, 503, "shutting down", 0,
-                         H2O_SEND_ERROR_HTTP1_CLOSE_CONNECTION);
+  if ( u3_rsat_plan != req_u->sat_e ) {
+    return;
+  }
 
-  _http_req_free(req_u);
+  c3_c* msg_c = "shutting down";
+  h2o_send_error_generic(req_u->rec_u, 503, msg_c, msg_c,
+                         H2O_SEND_ERROR_HTTP1_CLOSE_CONNECTION);
+  _http_req_kill(req_u);
+  req_u->sat_e = u3_rsat_ripe;
+}
+
+/* _http_req_done(): request finished, deallocation callback
+*/
+static void
+_http_req_done(void* ptr_v)
+{
+  u3_hreq* req_u = (u3_hreq*)ptr_v;
+
+  // client canceled request
+  if ( u3_rsat_plan == req_u->sat_e ) {
+    _http_req_kill(req_u);
+  }
+
+  _http_req_unlink(req_u);
+}
+
+/* _http_req_new(): receive http request.
+*/
+static u3_hreq*
+_http_req_new(u3_hcon* hon_u, h2o_req_t* rec_u)
+{
+  u3_hreq* req_u = h2o_mem_alloc_shared(&rec_u->pool, sizeof(*req_u),
+                                        _http_req_done);
+  req_u->rec_u = rec_u;
+  req_u->sat_e = u3_rsat_init;
+  req_u->pre_u = 0;
+
+  _http_req_link(hon_u, req_u);
+
+  return req_u;
 }
 
 /* _http_req_dispatch(): dispatch http request to %eyre
@@ -316,7 +327,6 @@ _http_req_dispatch(u3_hreq* req_u, u3_noun req)
 typedef struct _u3_hgen {
   h2o_generator_t neg_u;
   h2o_iovec_t     bod_u;
-  u3_hreq*        req_u;
   u3_hhed*        hed_u;
 } u3_hgen;
 
@@ -326,7 +336,6 @@ static void
 _http_hgen_dispose(void* ptr_v)
 {
   u3_hgen* gen_u = (u3_hgen*)ptr_v;
-  _http_req_free(gen_u->req_u);
   _http_heds_free(gen_u->hed_u);
   free(gen_u->bod_u.base);
 }
@@ -360,7 +369,6 @@ _http_req_respond(u3_hreq* req_u, u3_noun sas, u3_noun hed, u3_noun bod)
   u3_hgen* gen_u = h2o_mem_alloc_shared(&rec_u->pool, sizeof(*gen_u),
                                         _http_hgen_dispose);
   gen_u->neg_u = (h2o_generator_t){0, 0};
-  gen_u->req_u = req_u;
   gen_u->hed_u = hed_u;
 
   while ( 0 != hed_u ) {
@@ -405,18 +413,6 @@ _http_rec_to_httq(h2o_req_t* rec_u)
   return u3nq(med, url, hed, bod);
 }
 
-/* _http_rec_fail(): fail on bad h2o_req_t
-*/
-static void
-_http_rec_fail(h2o_req_t* rec_u, c3_i sas_i, c3_c* sas_c)
-{
-  static h2o_generator_t gen_u = {0, 0};
-  rec_u->res.status = sas_i;
-  rec_u->res.reason = sas_c;
-  h2o_start_response(rec_u, &gen_u);
-  h2o_send(rec_u, 0, 0, H2O_SEND_STATE_FINAL);
-}
-
 typedef struct _h2o_uv_sock {         //  see private st_h2o_uv_socket_t
   h2o_socket_t     sok_u;             //  socket
   uv_stream_t*     han_u;             //  client stream handler (u3_hcon)
@@ -436,7 +432,8 @@ _http_rec_accept(h2o_handler_t* han_u, h2o_req_t* rec_u)
       uL(fprintf(uH, "strange %.*s request\n", (int)rec_u->method.len,
                                                rec_u->method.base));
     }
-    _http_rec_fail(rec_u, 400, "bad request");
+    c3_c* msg_c = "bad request";
+    h2o_send_error_generic(rec_u, 400, msg_c, msg_c, 0);
   }
   else {
     h2o_uv_sock* suv_u = (h2o_uv_sock*)rec_u->conn->
@@ -538,7 +535,7 @@ _http_conn_free(uv_handle_t* han_t)
 
       if ( u3_rsat_plan == req_u->sat_e ) {
         _http_req_kill(req_u);
-        _http_req_free(req_u);
+        _http_req_unlink(req_u);
       }
 
       req_u = nex_u;
@@ -614,12 +611,7 @@ _http_conn_close_soft(u3_hcon* hon_u)
 
     while ( 0 != req_u ) {
       u3_hreq* nex_u = req_u->nex_u;
-
-      if ( u3_rsat_plan == req_u->sat_e ) {
-        _http_req_kill(req_u);
-        _http_req_close(req_u);
-      }
-
+      _http_req_cancel(req_u);
       req_u = nex_u;
     }
 
