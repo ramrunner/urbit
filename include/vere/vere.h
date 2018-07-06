@@ -63,6 +63,7 @@
         c3_w             ipf_w;             //  client ipv4
         c3_w             coq_l;             //  connection number
         c3_w             seq_l;             //  next request number
+        c3_o             liv;               //  c3n == shutting down
         struct _u3_http* htp_u;             //  server backlink
         struct _u3_hreq* req_u;             //  request list
         struct _u3_hcon* nex_u;             //  next in server's list
