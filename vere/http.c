@@ -1469,6 +1469,10 @@ static void
 _proxy_warc_link(u3_warc* cli_u)
 {
   cli_u->nex_u = u3_Host.fig_u.cli_u;
+
+  if ( 0 != cli_u->nex_u ) {
+    cli_u->nex_u->pre_u = cli_u;
+  }
   u3_Host.fig_u.cli_u = cli_u;
 }
 
@@ -1479,9 +1483,17 @@ _proxy_warc_unlink(u3_warc* cli_u)
 {
   if ( 0 != cli_u->pre_u ) {
     cli_u->pre_u->nex_u = cli_u->nex_u;
+
+    if ( 0 != cli_u->nex_u ) {
+      cli_u->nex_u->pre_u = cli_u->pre_u;
+    }
   }
   else {
     u3_Host.fig_u.cli_u = cli_u->nex_u;
+
+    if ( 0 != cli_u->nex_u ) {
+      cli_u->nex_u->pre_u = 0;
+    }
   }
 }
 
@@ -1522,6 +1534,10 @@ _proxy_conn_link(u3_pcon* con_u)
 
     case u3_ptyp_ward: {
       con_u->nex_u = u3_Host.fig_u.con_u;
+
+      if ( 0 != con_u->nex_u ) {
+        con_u->nex_u->pre_u = con_u;
+      }
       u3_Host.fig_u.con_u = con_u;
       break;
     }
@@ -1529,6 +1545,10 @@ _proxy_conn_link(u3_pcon* con_u)
     case u3_ptyp_prox: {
       u3_prox* lis_u = con_u->src_u.lis_u;
       con_u->nex_u = lis_u->con_u;
+
+      if ( 0 != con_u->nex_u ) {
+        con_u->nex_u->pre_u = con_u;
+      }
       lis_u->con_u = con_u;
       break;
     }
@@ -1542,6 +1562,10 @@ _proxy_conn_unlink(u3_pcon* con_u)
 {
   if ( 0 != con_u->pre_u ) {
     con_u->pre_u->nex_u = con_u->nex_u;
+
+    if ( 0 != con_u->nex_u ) {
+      con_u->nex_u->pre_u = con_u->pre_u;
+    }
   }
   else {
     switch ( con_u->typ_e ) {
@@ -1549,12 +1573,20 @@ _proxy_conn_unlink(u3_pcon* con_u)
 
       case u3_ptyp_ward: {
         u3_Host.fig_u.con_u = con_u->nex_u;
+
+        if ( 0 != con_u->nex_u ) {
+          con_u->nex_u->pre_u = 0;
+        }
         break;
       }
 
       case u3_ptyp_prox: {
         u3_prox* lis_u = con_u->src_u.lis_u;
         lis_u->con_u = con_u->nex_u;
+
+        if ( 0 != con_u->nex_u ) {
+          con_u->nex_u->pre_u = 0;
+        }
         break;
       }
     }
@@ -1818,6 +1850,10 @@ _proxy_ward_link(u3_pcon* con_u, u3_ward* rev_u)
   u3_prox* lis_u = con_u->src_u.lis_u;
 
   rev_u->nex_u = lis_u->rev_u;
+
+  if ( 0 != rev_u->nex_u ) {
+    rev_u->nex_u->pre_u = rev_u;
+  }
   lis_u->rev_u = rev_u;
 }
 
@@ -1828,12 +1864,20 @@ _proxy_ward_unlink(u3_ward* rev_u)
 {
   if ( 0 != rev_u->pre_u ) {
     rev_u->pre_u->nex_u = rev_u->nex_u;
+
+    if ( 0 != rev_u->nex_u ) {
+      rev_u->nex_u->pre_u = rev_u->pre_u;
+    }
   }
   else {
     c3_assert( u3_ptyp_prox == rev_u->con_u->typ_e );
 
     u3_prox* lis_u = rev_u->con_u->src_u.lis_u;
     lis_u->rev_u = rev_u->nex_u;
+
+    if ( 0 != rev_u->nex_u ) {
+      rev_u->nex_u->pre_u = 0;
+    }
   }
 }
 
