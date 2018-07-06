@@ -1287,8 +1287,11 @@ _http_serv_start_all(void)
 
     c3_assert( u3_none != non );
 
-    // XX open/shut?
+    // XX u3_lo_open();
+
     u3v_plan(pax, u3nt(c3__live, non, sec));
+
+    // XX u3_lo_shut(c3y);
   }
 
   _http_write_ports_file(u3_Host.dir_c);
@@ -2016,6 +2019,8 @@ _proxy_ward_start(u3_pcon* con_u, u3_noun sip)
     _proxy_conn_close(con_u);
   }
   else {
+    // XX u3_lo_open();
+
     rev_u->por_s = ntohs(add_u.sin_port);
     _proxy_ward_plan(rev_u);
 
@@ -2023,6 +2028,8 @@ _proxy_ward_start(u3_pcon* con_u, u3_noun sip)
 
     // XX how long?
     uv_timer_start(&rev_u->tim_u, _proxy_ward_timer_cb, 30 * 1000, 0);
+
+    // XX u3_lo_shut(c3y);
   }
 }
 
