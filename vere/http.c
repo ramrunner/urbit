@@ -423,8 +423,6 @@ typedef struct _h2o_uv_sock {         //  see private st_h2o_uv_socket_t
 static c3_i
 _http_rec_accept(h2o_handler_t* han_u, h2o_req_t* rec_u)
 {
-  // XX u3_lo_open();
-
   u3_weak req = _http_rec_to_httq(rec_u);
 
   if ( u3_none == req ) {
@@ -436,6 +434,8 @@ _http_rec_accept(h2o_handler_t* han_u, h2o_req_t* rec_u)
     h2o_send_error_generic(rec_u, 400, msg_c, msg_c, 0);
   }
   else {
+    u3_lo_open();
+
     h2o_uv_sock* suv_u = (h2o_uv_sock*)rec_u->conn->
                            callbacks->get_socket(rec_u->conn);
     u3_hcon* hon_u = (u3_hcon*)suv_u->han_u;
@@ -445,9 +445,9 @@ _http_rec_accept(h2o_handler_t* han_u, h2o_req_t* rec_u)
 
     u3_hreq* req_u = _http_req_new(hon_u, rec_u);
     _http_req_dispatch(req_u, req);
-  }
 
-  // XX u3_lo_shut(c3y);
+    u3_lo_shut(c3y);
+  }
 
   return 0;
 }
