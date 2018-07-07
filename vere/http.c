@@ -1300,11 +1300,11 @@ _http_serv_start_all(void)
   // there's no good place for it to go
   u3_Host.tls_u = 0;
 
-  if ( 0 != u3_Host.fig_u.tim_u ) {
-    uv_timer_stop(u3_Host.fig_u.tim_u);
-    free(u3_Host.fig_u.tim_u);
-    u3_Host.fig_u.tim_u = 0;
-  }
+  // if ( 0 != u3_Host.fig_u.tim_u ) {
+  //   uv_timer_stop(u3_Host.fig_u.tim_u);
+  //   free(u3_Host.fig_u.tim_u);
+  //   u3_Host.fig_u.tim_u = 0;
+  // }
 
   u3_http* htp_u;
   c3_s por_s;
@@ -1417,11 +1417,11 @@ _http_serv_restart(void)
     _http_serv_close_soft(htp_u);
   }
 
-  u3_Host.fig_u.tim_u = c3_malloc(sizeof(uv_timer_t));
+  // u3_Host.fig_u.tim_u = c3_malloc(sizeof(uv_timer_t));
 
-  uv_timer_init(u3L, u3_Host.fig_u.tim_u);
-  // XX how long?
-  uv_timer_start(u3_Host.fig_u.tim_u, _http_serv_restart_cb, 0, 0);
+  // uv_timer_init(u3L, u3_Host.fig_u.tim_u);
+  // // XX how long?
+  // uv_timer_start(u3_Host.fig_u.tim_u, _http_serv_restart_cb, 0, 0);
 
   _http_release_ports_file(u3_Host.dir_c);
 }
