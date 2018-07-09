@@ -261,6 +261,11 @@ elif osdet == 'bsd'
   kvm_dep = meson.get_compiler('c').find_library('kvm')
   ncurses_dep = dependency('ncurses')
   os_deps = os_deps + [kvm_dep, pthread_dep, ncurses_dep]
+elif osdet == 'openbsd'
+  conf_data.set('U3_OS_bsd', true)
+  os_link_flags = ['-L /usr/local/lib', '-lgmp', '-lsigsegv', '-lcurses']
+  gmp_dep = []
+  sigsegv_dep = []
 else
   error('Unsupported OS detected:' + osdet)
 endif
@@ -291,7 +296,7 @@ endif
 if(legacy_meson)
   gmp_dep = find_library('gmp')
   sigsegv_dep = find_library('sigsegv')
-else
+elif osdet != 'openbsd'
   gmp_dep = meson.get_compiler('c').find_library('gmp')
   sigsegv_dep = meson.get_compiler('c').find_library('sigsegv')
 endif
